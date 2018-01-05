@@ -196,6 +196,7 @@ func TestEmptyQuery(t *testing.T) {
 		if rows.Next() {
 			dbt.Errorf("next on rows must be false")
 		}
+		rows.Close()
 	})
 }
 
@@ -228,6 +229,7 @@ func TestCRUD(t *testing.T) {
 		if id != 0 {
 			dbt.Fatalf("expected InsertId 0, got %d", id)
 		}
+		rows.Close()
 
 		// Read
 		rows = dbt.mustQuery("SELECT value FROM test")
@@ -243,6 +245,7 @@ func TestCRUD(t *testing.T) {
 		} else {
 			dbt.Error("no data")
 		}
+		rows.Close()
 
 		// Update
 		res = dbt.mustExec("UPDATE test SET value = ? WHERE value = ?", false, true)
@@ -268,6 +271,7 @@ func TestCRUD(t *testing.T) {
 		} else {
 			dbt.Error("no data")
 		}
+		rows.Close()
 
 		// Delete
 		res = dbt.mustExec("DELETE FROM test WHERE value = ?", false)
@@ -331,14 +335,23 @@ func TestMultiQuery(t *testing.T) {
 		} else {
 			dbt.Error("no data")
 		}
-
+		rows.Close()
 	})
 }
 
 func TestInt(t *testing.T) {
+	in := int64(42)
+	testInt(t, in, in)
+}
+
+func TestIntPtr(t *testing.T) {
+	in := int64(42)
+	testInt(t, in, &in)
+}
+
+func testInt(t *testing.T, in int64, arg interface{}) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := [5]string{"TINYINT", "SMALLINT", "MEDIUMINT", "INT", "BIGINT"}
-		in := int64(42)
 		var out int64
 		var rows *sql.Rows
 
@@ -346,7 +359,7 @@ func TestInt(t *testing.T) {
 		for _, v := range types {
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 
-			dbt.mustExec("INSERT INTO test VALUES (?)", in)
+			dbt.mustExec("INSERT INTO test VALUES (?)", arg)
 
 			rows = dbt.mustQuery("SELECT value FROM test")
 			if rows.Next() {
@@ -358,6 +371,7 @@ func TestInt(t *testing.T) {
 				dbt.Errorf("%s: no data", v)
 			}
 
+			rows.Close()
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 
@@ -365,7 +379,7 @@ func TestInt(t *testing.T) {
 		for _, v := range types {
 			dbt.mustExec("CREATE TABLE test (value " + v + " ZEROFILL)")
 
-			dbt.mustExec("INSERT INTO test VALUES (?)", in)
+			dbt.mustExec("INSERT INTO test VALUES (?)", arg)
 
 			rows = dbt.mustQuery("SELECT value FROM test")
 			if rows.Next() {
@@ -377,6 +391,7 @@ func TestInt(t *testing.T) {
 				dbt.Errorf("%s ZEROFILL: no data", v)
 			}
 
+			rows.Close()
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 	})
@@ -400,20 +415,30 @@ func TestFloat32(t *testing.T) {
 			} else {
 				dbt.Errorf("%s: no data", v)
 			}
+			rows.Close()
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 	})
 }
 
 func TestFloat64(t *testing.T) {
+	in := float64(42.23)
+	testFloat64(t, in, in)
+}
+
+func TestFloat64Ptr(t *testing.T) {
+	in := float64(42.23)
+	testFloat64(t, in, &in)
+}
+
+func testFloat64(t *testing.T, expected float64, arg interface{}) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
-		var expected float64 = 42.23
 		var out float64
 		var rows *sql.Rows
 		for _, v := range types {
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
-			dbt.mustExec("INSERT INTO test VALUES (42.23)")
+			dbt.mustExec("INSERT INTO test VALUES (?)", arg)
 			rows = dbt.mustQuery("SELECT value FROM test")
 			if rows.Next() {
 				rows.Scan(&out)
@@ -423,6 +448,7 @@ func TestFloat64(t *testing.T) {
 			} else {
 				dbt.Errorf("%s: no data", v)
 			}
+			rows.Close()
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 	})
@@ -446,22 +472,33 @@ func TestFloat64Placeholder(t *testing.T) {
 			} else {
 				dbt.Errorf("%s: no data", v)
 			}
+			rows.Close()
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 	})
 }
 
 func TestString(t *testing.T) {
+	in := "κόσμε üöäßñóùéàâÿœ'îë Árvíztűrő いろはにほへとちりぬるを イロハニホヘト דג סקרן чащах  น่าฟังเอย"
+	testString(t, in, in)
+}
+
+func TestStringPtr(t *testing.T) {
+	in := "κόσμε üöäßñóùéàâÿœ'îë Árvíztűrő いろはにほへとちりぬるを イロハニホヘト דג סקרן чащах  น่าฟังเอย"
+	testString(t, in, &in)
+}
+
+func testString(t *testing.T, s string, arg interface{}) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := [6]string{"CHAR(255)", "VARCHAR(255)", "TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT"}
-		in := "κόσμε üöäßñóùéàâÿœ'îë Árvíztűrő いろはにほへとちりぬるを イロハニホヘト דג סקרן чащах  น่าฟังเอย"
+		in := s
 		var out string
 		var rows *sql.Rows
 
 		for _, v := range types {
 			dbt.mustExec("CREATE TABLE test (value " + v + ") CHARACTER SET utf8")
 
-			dbt.mustExec("INSERT INTO test VALUES (?)", in)
+			dbt.mustExec("INSERT INTO test VALUES (?)", arg)
 
 			rows = dbt.mustQuery("SELECT value FROM test")
 			if rows.Next() {
@@ -473,6 +510,7 @@ func TestString(t *testing.T) {
 				dbt.Errorf("%s: no data", v)
 			}
 
+			rows.Close()
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 
@@ -575,6 +613,65 @@ func TestValuerWithValidation(t *testing.T) {
 		}
 
 		dbt.mustExec("DROP TABLE IF EXISTS testValuer")
+	})
+}
+
+func TestBytes(t *testing.T) {
+	in := []byte("κόσμε üöäßñóùéàâÿœ'îë Árvíztűrő いろはにほへとちりぬるを イロハニホヘト דג סקרן чащах  น่าฟังเอย")
+	testBytes(t, in, in)
+}
+
+func TestBytesPtr(t *testing.T) {
+	in := []byte("κόσμε üöäßñóùéàâÿœ'îë Árvíztűrő いろはにほへとちりぬるを イロハニホヘト דג סקרן чащах  น่าฟังเอย")
+	testBytes(t, in, &in)
+}
+
+func testBytes(t *testing.T, s []byte, arg interface{}) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		types := [6]string{"CHAR(255)", "VARCHAR(255)", "TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT"}
+		in := s
+		var out []byte
+		var rows *sql.Rows
+
+		for _, v := range types {
+			dbt.mustExec("CREATE TABLE test (value " + v + ") CHARACTER SET utf8")
+
+			dbt.mustExec("INSERT INTO test VALUES (?)", arg)
+
+			rows = dbt.mustQuery("SELECT value FROM test")
+			if rows.Next() {
+				rows.Scan(&out)
+				if !bytes.Equal(in, out) {
+					dbt.Errorf("%s: %s != %s", v, in, out)
+				}
+			} else {
+				dbt.Errorf("%s: no data", v)
+			}
+
+			rows.Close()
+			dbt.mustExec("DROP TABLE IF EXISTS test")
+		}
+
+		// BLOB
+		dbt.mustExec("CREATE TABLE test (id int, value BLOB) CHARACTER SET utf8")
+
+		id := 2
+		in = []byte("Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
+			"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
+			"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
+			"Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. " +
+			"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
+			"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
+			"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
+			"Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.")
+		dbt.mustExec("INSERT INTO test VALUES (?, ?)", id, in)
+
+		err := dbt.db.QueryRow("SELECT value FROM test WHERE id = ?", id).Scan(&out)
+		if err != nil {
+			dbt.Fatalf("Error on BLOB-Query: %s", err.Error())
+		} else if !bytes.Equal(in, out) {
+			dbt.Errorf("BLOB: %s != %s", in, out)
+		}
 	})
 }
 
@@ -852,6 +949,7 @@ func TestTimestampMicros(t *testing.T) {
 		if res6 != f6 {
 			dbt.Errorf("expected %q, got %q", f6, res6)
 		}
+		rows.Close()
 	})
 }
 
@@ -1002,6 +1100,7 @@ func TestNULL(t *testing.T) {
 		} else {
 			dbt.Error("no data")
 		}
+		rows.Close()
 	})
 }
 
@@ -1084,7 +1183,7 @@ func TestLongData(t *testing.T) {
 		} else {
 			dbt.Fatalf("LONGBLOB: no data")
 		}
-
+		rows.Close()
 		// Empty table
 		dbt.mustExec("TRUNCATE TABLE test")
 
@@ -1106,6 +1205,7 @@ func TestLongData(t *testing.T) {
 				dbt.Fatal("LONGBLOB: no data (err: <nil>)")
 			}
 		}
+		rows.Close()
 	})
 }
 
@@ -1277,6 +1377,8 @@ func TestTLS(t *testing.T) {
 				dbt.Fatal("no Cipher")
 			}
 		}
+
+		rows.Close()
 	}
 
 	runTests(t, dsn+"&tls=skip-verify", tlsTest)
@@ -1410,7 +1512,6 @@ func TestCollation(t *testing.T) {
 func TestColumnsWithAlias(t *testing.T) {
 	runTests(t, dsn+"&columnsWithAlias=true", func(dbt *DBTest) {
 		rows := dbt.mustQuery("SELECT 1 AS A")
-		defer rows.Close()
 		cols, _ := rows.Columns()
 		if len(cols) != 1 {
 			t.Fatalf("expected 1 column, got %d", len(cols))
@@ -1428,6 +1529,7 @@ func TestColumnsWithAlias(t *testing.T) {
 		if cols[0] != "A.one" {
 			t.Fatalf("expected column name \"A.one\", got \"%s\"", cols[0])
 		}
+		rows.Close()
 	})
 }
 
@@ -1480,6 +1582,8 @@ func TestTimezoneConversion(t *testing.T) {
 			dbt.Errorf(" Now(%v)=%v\n", usCentral, reftime)
 			dbt.Errorf(" Now(UTC)=%v\n", dbTime)
 		}
+
+		rows.Close()
 	}
 
 	for _, tz := range zones {

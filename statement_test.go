@@ -69,7 +69,7 @@ func TestConvertPointer(t *testing.T) {
 		t.Fatal("Pointer type not convertible", err)
 	}
 
-	if output != "value" {
+	if _, ok := output.(string); !ok {
 		t.Fatalf("Pointer type not converted, got %#v %T", output, output)
 	}
 }
